@@ -20,8 +20,6 @@ last_x = 0.5
 last_y = 0.5
 def run(video_frame: VideoFrame):
     global id_switch_counter, current_tracked_id, last_x, last_y
-    # Check for response from Arduino
-    arduino.print_response()
     # handle the frame
     detections = video_frame.roi.get_objects_typed(hailo.HAILO_DETECTION)
     if (detections is None) or (len(detections) == 0):
@@ -76,8 +74,8 @@ def run(video_frame: VideoFrame):
     # print(f'x={x}, y={y}')
     arduino.update_eye_data(cam_x=x, cam_y=y, eye_x=x, eye_y=y, blink=False)
     arduino.send_eye_data()
-
-    # import ipdb; ipdb.set_trace()
+    if (x==0) and (y==0):
+        import ipdb; ipdb.set_trace()
     
     
     return Gst.FlowReturn.OK

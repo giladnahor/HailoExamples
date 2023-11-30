@@ -13,6 +13,7 @@
 
 #include <Wire.h>
 #include <Adafruit_PWMServoDriver.h>
+#include <PID_v1.h>
 
 SerialTransfer myTransfer;
 TimedTrigger blink_trigger(2500, 100);
@@ -23,14 +24,38 @@ struct EyeData
   float cam_y;
   float eye_x;
   float eye_y;
-  uint8_t blink; // Use uint8_t for the boolean
+  float blink;
+  float mouth;
 } eyeData;
- 
+
+struct ConfigData
+{
+  float auto_blink;
+  float cam_x_p;
+  float cam_x_i;
+  float cam_x_d;
+  float cam_y_p;
+  float cam_y_i;
+  float cam_y_d;
+  float eye_x_p;
+  float eye_x_i;
+  float eye_x_d;
+  float eye_y_p;
+  float eye_y_i;
+  float eye_y_d;
+  float eye_open;
+} configData;
 
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 
 #define SERVOMIN  140 // this is the 'minimum' pulse length count (out of 4096)
 #define SERVOMAX  520 // this is the 'maximum' pulse length count (out of 4096)
+
+//Define Variables we'll be connecting to
+double eye_x_Setpoint=350, eye_x_current=350, eye_x_next=350, eye_x_Output;
+
+//Specify the links and initial tuning parameters
+PID eye_x_PID(&eye_x_current, &eye_x_Output, &eye_x_Setpoint,2,5,1,P_ON_E, DIRECT);
 
 // pwm.setPWM(0, 0, 350); // X axis
 // pwm.setPWM(1, 0, 350); // Y axis
@@ -57,7 +82,7 @@ int lolidpulse_prev;
 int altuplidpulse_prev;
 int altlolidpulse_prev;
 
-int trimval;
+int trimval; // set eye open/close
 
 // neck axis with smoothing
 int neck_cur_x = 350;
@@ -75,7 +100,7 @@ float yval_smoothing = 0.2;
 const int analogInPin = A0;
 int sensorValue = 0;
 int outputValue = 0;
-int switchval = 0;
+int switchval = HIGH; // switch is active low, used to blink
 
 const int SwitchPin = 2;
 void setup() {
@@ -89,6 +114,9 @@ void setup() {
   
   pwm.setPWMFreq(60);  // Analog servos run at ~60 Hz updates
 
+  eye_x_PID.SetMode(AUTOMATIC);
+  eye_x_PID.SetOutputLimits(250, 450); // 250, 450
+  eye_x_PID.SetSampleTime(100); // ms
   delay(10);
 }
 
@@ -116,31 +144,38 @@ void setServoPulse(uint8_t n, double pulse) {
 int control_counter = 0;
 int control_counter_threshold = 10;
 bool blink = false;
+
 void loop() {
   if(myTransfer.available())
   {
-    // Read the received bytes into the struct
-    myTransfer.rxObj(eyeData);
+    if (myTransfer.currentPacketID() == 0) {
+      // Received control packet
+      myTransfer.rxObj(eyeData);
+      
+      // // Print the received values
+      // Serial.print("cam_x: "); Serial.print(eyeData.cam_x, 4);
+      // Serial.print(" cam_y: "); Serial.print(eyeData.cam_y, 4);
+      // Serial.print(" eye_x: "); Serial.print(eyeData.eye_x, 4);
+      // Serial.print(" eye_y: "); Serial.print(eyeData.eye_y, 4);
+      // Serial.print(" blink: "); Serial.print(eyeData.blink, 4);
+      // Serial.print(" mouth: "); Serial.println(eyeData.mouth, 4);
+      
+      xval_next = eyeData.eye_x;
+      yval_next = 1023 - eyeData.eye_y;
+      
+      xval = smooth(xval_next, xval, xval_smoothing); // smoothen the eye movement
+      yval = smooth(yval_next, yval, yval_smoothing);
     
-    // Print the received values
-    // Serial.print("cam_x: "); Serial.print(eyeData.cam_x, 4);
-    // Serial.print("cam_y: "); Serial.print(eyeData.cam_y, 4);
-    // Serial.print("eye_x: "); Serial.print(eyeData.eye_x, 4);
-    // Serial.print("eye_y: "); Serial.print(eyeData.eye_y, 4);
-    // Serial.print("blink: "); Serial.println(eyeData.blink ? "true" : "false");
-    
-    xval_next = eyeData.eye_x;
-    yval_next = 1023 - eyeData.eye_y;
-    
-    xval = smooth(xval_next, xval, xval_smoothing); // smoothen the eye movement
-    yval = smooth(yval_next, yval, yval_smoothing);
-    // Serial.print("xval_next: "); Serial.print(xval_next);
-    // Serial.print(" xval: "); Serial.println(xval);
-    
-    // switchval = eyeData.blink;
-    switchval = HIGH;
-    trimval = 520; //analogRead(A2);
-    
+      if (eyeData.blink > 0.5) {
+        blink_trigger.setState(HIGH); //Blink
+      }
+    }
+    if (myTransfer.currentPacketID() == 1) {
+      // Recieved config packet
+      myTransfer.rxObj(configData);
+      trimval = configData.eye_open;
+      eye_x_PID.SetTunings(configData.eye_x_p, configData.eye_x_i, configData.eye_x_d);
+    }
     //reset control counter
     control_counter = 0;
   } 
@@ -154,7 +189,7 @@ void loop() {
     control_counter++;
     if (control_counter > control_counter_threshold) { 
       // if no data received for a while, switch to manual control
-      xval = analogRead(A1);
+      // xval = analogRead(A1); //TBD
       yval = analogRead(A0);
       switchval = digitalRead(SwitchPin);
       //switchval = LOW;    
@@ -187,25 +222,23 @@ void loop() {
   // altuplidpulse = smooth(altuplidpulse, altuplidpulse_prev, 0.5);
   // altlolidpulse = smooth(altlolidpulse, altlolidpulse_prev, 0.5);
   
-  Serial.print("xval: "); Serial.print(xval);
-  Serial.print(" yval: "); Serial.print(yval);
-  Serial.print(" lex: "); Serial.print(lexpulse);
-  Serial.print(" ley: "); Serial.print(leypulse);
-  Serial.print(" uplid: "); Serial.print(uplidpulse);
-  Serial.print(" lolid: "); Serial.print(lolidpulse);
-  Serial.print(" altupli: "); Serial.print(altuplidpulse);
-  Serial.print(" altloli: "); Serial.println(altlolidpulse);
+  // Serial.print("xval: "); Serial.print(xval);
+  // Serial.print(" yval: "); Serial.print(yval);
+  // Serial.print(" lex: "); Serial.print(lexpulse);
+  // Serial.print(" ley: "); Serial.print(leypulse);
+  // Serial.print(" uplid: "); Serial.print(uplidpulse);
+  // Serial.print(" lolid: "); Serial.print(lolidpulse);
+  // Serial.print(" altupli: "); Serial.print(altuplidpulse);
+  // Serial.print(" altloli: "); Serial.println(altlolidpulse);
 
   pwm.setPWM(0, 0, lexpulse);
   pwm.setPWM(1, 0, leypulse);
   
   // Timed blink
   blink = blink_trigger.Update();
-  if (!blink) {
-    switchval = LOW;
-  }
-  // switchval = LOW;
-  if (switchval == LOW) {
+  switchval = !blink; // switch is active low
+  
+  if (switchval == LOW) { // Blink
   pwm.setPWM(2, 0, 400);
   pwm.setPWM(3, 0, 280);
   pwm.setPWM(4, 0, 280);
@@ -230,10 +263,23 @@ void loop() {
   pwm.setPWM(6, 0, neck_cur_x);
   pwm.setPWM(7, 0, neck_cur_y);
   
-  // Serial.print(xval);
-  // Serial.print(", ");
-  // Serial.println(yval);
-  
+  eye_x_Setpoint = map(eyeData.eye_x, 0,1023, 250, 450);
+  eye_x_PID.Compute();
+  eye_x_current = eye_x_Output; // Update the current position
+  Serial.print("eye_x, ");
+  Serial.print(eyeData.eye_x);
+  Serial.print(", ");
+  Serial.print("Setpoint, ");
+  Serial.print(eye_x_Setpoint);
+  Serial.print(", ");
+  Serial.print("current, ");
+  Serial.print(eye_x_current);
+  Serial.print(", ");
+  Serial.print("Output, ");
+  Serial.print(eye_x_Output);
+  Serial.print(", ");
+  Serial.print("Kp, ");
+  Serial.println(eye_x_PID.GetKp());
   delay(5);
 }
 
