@@ -107,7 +107,7 @@ class AppWindow(Gtk.Window):
     def create_pipeline(self):
         # Check if the input seems like a v4l2 device path (e.g., /dev/video0)
         if re.match(r'/dev/video\d+', self.input_uri):
-            pipeline_str = f"v4l2src device={self.input_uri} !  image/jpeg ! decodebin ! videoflip video-direction=horiz !"
+            pipeline_str = f"v4l2src device={self.input_uri} !  image/jpeg ! decodebin ! videoflip video-direction=horiz ! "
         else:
             pipeline_str = f"uridecodebin uri={self.input_uri} ! "
         pipeline_str += get_pipeline(self.current_path)

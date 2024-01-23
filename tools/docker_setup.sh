@@ -1,4 +1,4 @@
-
+#!/bin/bash
 sudo apt install meld -y
 sudo apt install emacs -y
 git config --global user.email "giladn@hailo.ai"
