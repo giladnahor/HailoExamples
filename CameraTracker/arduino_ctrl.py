@@ -1,3 +1,4 @@
+import ipdb; ipdb.set_trace()
 import json
 from pathlib import Path
 
@@ -8,9 +9,7 @@ import numpy as np
 from gsthailo import VideoFrame
 from gi.repository import Gst
 
-from SerialControl import EyeDataController
-
-arduino = EyeDataController("/dev/ttyUSB0", debug=False)
+from SerialControl import arduino
 
 current_tracked_id = None
 SWITCH_COUNTER_MAX = 30 # used for smoothly switching between ids in time domain

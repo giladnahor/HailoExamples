@@ -27,25 +27,57 @@ class EyeDataController:
             'eye_y_i': 0.0,
             'eye_y_d': 0.0,
             'eye_open': 0.5,
+            'servo_0_min': 270.0,
+            'servo_0_max': 390.0,
+            'servo_1_min': 280.0,
+            'servo_1_max': 400.0,
+            'servo_2_min': 270.0,
+            'servo_2_max': 390.0,
+            'servo_3_min': 280.0,
+            'servo_3_max': 400.0,
+            'servo_4_min': 280.0,
+            'servo_4_max': 400.0,
+            'servo_5_min': 280.0,
+            'servo_5_max': 400.0,
+            'servo_6_min': 250.0,
+            'servo_6_max': 450.0,
+            'servo_7_min': 320.0,
+            'servo_7_max': 380.0,
+
         }
-        self.link = txfer.SerialTransfer(port)
+        self.port = port
+        self.link = None
+        self.debug = debug
+        
+    def connect(self):
+        self.link = txfer.SerialTransfer(self.port)
         self.link.open()
         sleep(2)
-        self.uart_serial = serial.Serial(port, 115200)
+        self.uart_serial = serial.Serial(self.port, 115200)
+
+    def set_debug(self, debug):
         self.debug = debug
-        if self.debug:
-            pass
-            # self.plotter = plotter.RealTimePlotter(plot_length=100, named_series=True)
+        # if self.debug:
+        #     self.plotter = plotter.RealTimePlotter(plot_length=100, named_series=True)
+    
+    # Define class as a singleton
+    _instance = None
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(EyeDataController, cls).__new__(cls)
+        return cls._instance
 
     def update_eye_data(self, cam_x, cam_y, eye_x, eye_y, blink=0.0, mouth=0.0):
-        self.eyeData['cam_x'] = cam_x * 1024
-        self.eyeData['cam_y'] = cam_y * 1024
-        self.eyeData['eye_x'] = eye_x * 1024
-        self.eyeData['eye_y'] = eye_y * 1024
+        self.eyeData['cam_x'] = cam_x * 1024.0
+        self.eyeData['cam_y'] = cam_y * 1024.0
+        self.eyeData['eye_x'] = eye_x * 1024.0
+        self.eyeData['eye_y'] = eye_y * 1024.0
         self.eyeData['blink'] = blink
         self.eyeData['mouth'] = mouth
 
     def send_eye_data(self):
+        if self.link is None:
+            print('Serial link is not initialized. Call connect() first.')
         sendSize = 0
         sendSize = self.link.tx_obj(self.eyeData['cam_x'], start_pos=sendSize)
         sendSize = self.link.tx_obj(self.eyeData['cam_y'], start_pos=sendSize)
@@ -77,6 +109,8 @@ class EyeDataController:
         self.ConfigData['eye_open'] = eye_open
 
     def send_config_data(self):
+        if self.link is None:
+            print('Serial link is not initialized. Call connect() first.')
         sendSize = 0
         sendSize = self.link.tx_obj(self.ConfigData['auto_blink'], start_pos=sendSize)
         sendSize = self.link.tx_obj(self.ConfigData['cam_x_p'], start_pos=sendSize)
@@ -115,23 +149,30 @@ class EyeDataController:
         self.link.close()
         self.uart_serial.close()
 
+# Instantiate the a class instance to make sure that only one instance is created.
+# Users should use this instance to access the class methods.
+arduino = EyeDataController()
+
 if __name__ == '__main__':
-    arduino = EyeDataController(debug=True)
     try:
         i = 0.0
         # arduino.update_config_data(eye_x_p=1, eye_x_i=1, eye_x_d=1)
         # arduino.send_config_data()
-            
+        arduino.set_debug(True)
+        arduino.connect()
         while True:
-            arduino.update_eye_data(cam_x=0.5, cam_y=0.5, eye_x=i, eye_y=0.5, blink=False)
+            # arduino.update_eye_data(cam_x=0.5, cam_y=0.5, eye_x=i, eye_y=0.5, blink=False)
+            arduino.update_eye_data(cam_x=0.5, cam_y=0.5, eye_x=0.5, eye_y=0.5, blink=False)
+            
+            import ipdb; ipdb.set_trace()
             arduino.send_eye_data()
             # arduino.update_config_data(eye_x_p=1.0, eye_x_i=0.0, eye_x_d=0.0)
             # arduino.send_config_data()
-            # arduino.print_response()
-            arduino.plot_response()
-            i += 0.01
+            # arduino.plot_response()
+            # i += 0.01
+            # if i > 1.0:
+            #     i = 0.0
+            arduino.print_response()
             sleep(0.03)
-            if i > 1.0:
-                i = 0.0
     finally:
         arduino.close()
