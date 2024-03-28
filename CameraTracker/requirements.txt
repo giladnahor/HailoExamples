@@ -1,0 +1,2 @@
+pyserial==3.5
+pySerialTransfer==2.6.9

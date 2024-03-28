@@ -77,9 +77,9 @@ def get_pipeline(current_path):
     )
 
     pipeline = (
-        "queue name=hailo_pre_convert_0 leaky=no max-size-buffers=30 max-size-bytes=0 max-size-time=0 ! "
+        " queue name=hailo_pre_convert_0 leaky=no max-size-buffers=30 max-size-bytes=0 max-size-time=0 ! "
         "videoconvert n-threads=2 qos=false ! "
-        "video/x-raw,format=NV12,width=1920,height=1080,framerate=30/1 ! "
+        "video/x-raw,format=NV12,width=1920,height=1080 ! "
         "queue name=pre_detector_q leaky=no max-size-buffers=30 max-size-bytes=0 max-size-time=0 ! "
         f"{DETECTOR_PIPELINE} ! "
         "queue name=pre_tracker_q leaky=no max-size-buffers=30 max-size-bytes=0 max-size-time=0 ! "
@@ -91,10 +91,10 @@ def get_pipeline(current_path):
         # "load-local-gallery=true similarity-thr=.4 gallery-queue-size=20 class-id=-1 ! "
         # "queue name=hailo_pre_draw2 leaky=no max-size-buffers=30 max-size-bytes=0 max-size-time=0 ! "
         f"hailopython qos=false module={current_path}/arduino_ctrl.py finalize-function=close name=python_filter ! "
-        "hailooverlay name=hailo_overlay qos=false show-confidence=false local-gallery=true line-thickness=5 font-thickness=2 landmark-point-radius=8 ! "
+        f"hailooverlay name=hailo_overlay qos=false show-confidence=false local-gallery=true line-thickness=5 font-thickness=2 landmark-point-radius=8 ! "
         "queue name=hailo_post_draw leaky=no max-size-buffers=30 max-size-bytes=0 max-size-time=0 ! "
         "videoconvert n-threads=4 qos=false name=display_videoconvert qos=false ! "
         f"queue name=hailo_display_q_0 leaky=no max-size-buffers=30 max-size-bytes=0 max-size-time=0 ! "
-        f"fpsdisplaysink video-sink={video_sink_element} name=hailo_display sync=false text-overlay=true "
+        f"fpsdisplaysink video-sink={video_sink_element} name=hailo_display sync=true text-overlay=true "
         )
     return pipeline

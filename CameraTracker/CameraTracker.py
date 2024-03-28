@@ -17,23 +17,26 @@ def parse_arguments():
     parser.add_argument("--sync", action="store_true", help="Enable display sink sync.")
     parser.add_argument("--input", "-i", type=str, default="/dev/video0", help="URI of the input stream.")
     parser.add_argument("--dump-dot", action="store_true", help="Dump the pipeline graph to a dot file.")
-    
+    parser.add_argument("--debug", action="store_true", help="Enable debug prints.")
     return parser.parse_args()
 
 def main():
     args = parse_arguments()
-    win = AppWindow(default_framerate=args.framerate, default_sync=args.sync, input_uri=args.input, dump_dot=args.dump_dot)
+    win = AppWindow(default_framerate=args.framerate, default_sync=args.sync, 
+                    input_uri=args.input, dump_dot=args.dump_dot, debug=args.debug)
     
     win.connect("destroy", Gtk.main_quit)
     win.show_all()
     Gtk.main()
 
 class AppWindow(Gtk.Window):
-    def __init__(self, default_framerate=15, default_sync=False, input_uri=None, dump_dot=False):
+    def __init__(self, default_framerate=15, default_sync=False, 
+                 input_uri=None, dump_dot=False, debug=False):
         
         self.input_uri = input_uri
         self.dump_dot = dump_dot
-
+        self.debug = debug
+        
         Gtk.Window.__init__(self, title="GStreamer App")
         self.set_border_width(10)
         self.set_default_size(400, 200)
