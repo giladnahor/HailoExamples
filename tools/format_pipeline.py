@@ -25,11 +25,30 @@ def reformat_pipeline(pipeline, line_limit=80):
         # Split the line at the break_index and add a backslash
         broken_lines.append(formatted_pipeline[:break_index + 1].rstrip() + " \\")
         formatted_pipeline = formatted_pipeline[break_index + 1:].lstrip()
-
     return '\n'.join(broken_lines)
 
-# Input the pipeline as a string
-input_pipeline = input("Enter your GStreamer pipeline: ")
+def get_input():
+    print("Enter your GStreamer pipeline (press Enter to finish):")
+    input_data = input()
+    
+    # Check if the input is likely truncated
+    if len(input_data) >= 4095:
+        print("Input is too long. Please enter the input in chunks. Press Enter on an empty line to finish.")
+        input_data = get_input_in_chunks()
+    
+    return input_data
+
+def get_input_in_chunks():
+    chunks = []
+    while True:
+        chunk = input()
+        if chunk == "":
+            break
+        chunks.append(chunk)
+    return '\n'.join(chunks)
+
+# Get the pipeline input
+input_pipeline = get_input()
 
 try:
     formatted_pipeline = reformat_pipeline(input_pipeline)
